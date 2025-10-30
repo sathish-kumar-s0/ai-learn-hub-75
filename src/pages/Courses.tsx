@@ -1,89 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, Users, Star, BookOpen } from "lucide-react";
+import { Clock, Users, Star, BookOpen, Loader2 } from "lucide-react";
 
-const courses = [
-  {
-    id: 1,
-    title: "Python for AI & Machine Learning",
-    description: "Master Python fundamentals and advanced concepts for AI development",
-    level: "Beginner",
-    duration: "8 weeks",
-    students: 2341,
-    rating: 4.8,
-    price: "Free",
-    lessons: 42,
-    image: "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=800&q=80"
-  },
-  {
-    id: 2,
-    title: "Machine Learning Fundamentals",
-    description: "Learn core ML algorithms, supervised and unsupervised learning",
-    level: "Intermediate",
-    duration: "10 weeks",
-    students: 1876,
-    rating: 4.9,
-    price: "$99",
-    lessons: 56,
-    image: "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=800&q=80"
-  },
-  {
-    id: 3,
-    title: "Deep Learning with Neural Networks",
-    description: "Build and train neural networks with TensorFlow and PyTorch",
-    level: "Advanced",
-    duration: "12 weeks",
-    students: 1543,
-    rating: 4.7,
-    price: "$149",
-    lessons: 68,
-    image: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&q=80"
-  },
-  {
-    id: 4,
-    title: "Natural Language Processing",
-    description: "Process and analyze text data with modern NLP techniques",
-    level: "Advanced",
-    duration: "10 weeks",
-    students: 987,
-    rating: 4.8,
-    price: "$149",
-    lessons: 52,
-    image: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800&q=80"
-  },
-  {
-    id: 5,
-    title: "Computer Vision & Image Recognition",
-    description: "Build powerful image recognition and computer vision systems",
-    level: "Advanced",
-    duration: "11 weeks",
-    students: 1234,
-    rating: 4.9,
-    price: "$149",
-    lessons: 64,
-    image: "https://images.unsplash.com/photo-1535378917042-10a22c95931a?w=800&q=80"
-  },
-  {
-    id: 6,
-    title: "AI Ethics & Responsible AI",
-    description: "Understand the ethical implications and best practices in AI",
-    level: "Beginner",
-    duration: "4 weeks",
-    students: 892,
-    rating: 4.6,
-    price: "Free",
-    lessons: 24,
-    image: "https://images.unsplash.com/photo-1649859394731-b09eea89570d?w=800&q=80"
-  }
-];
+interface Course {
+  id: string;
+  title: string;
+  description: string;
+  level: string;
+  duration: string;
+  students_count: number;
+  rating: number;
+  price: string;
+  lessons_count: number;
+  image_url: string;
+}
 
 const Courses = () => {
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
   const levels = ["All", "Beginner", "Intermediate", "Advanced"];
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("courses")
+          .select("*")
+          .eq("is_published", true)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        setCourses(data || []);
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
 
   const filteredCourses = filter === "All" 
     ? courses 
@@ -133,61 +95,67 @@ const Courses = () => {
       {/* Courses Grid */}
       <section className="py-16">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredCourses.map(course => (
-              <Card key={course.id} className="group hover:shadow-xl transition-all duration-300 overflow-hidden border-border/50">
-                <div className="relative h-48 overflow-hidden">
-                  <img 
-                    src={course.image} 
-                    alt={course.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                  />
-                  <div className="absolute top-4 right-4">
-                    <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm">
-                      {course.level}
-                    </Badge>
-                  </div>
-                </div>
-                
-                <CardHeader>
-                  <CardTitle className="text-xl group-hover:text-accent transition-colors">
-                    {course.title}
-                  </CardTitle>
-                  <CardDescription>{course.description}</CardDescription>
-                </CardHeader>
-
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      <span>{course.duration}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <BookOpen className="h-4 w-4" />
-                      <span>{course.lessons} lessons</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      <span>{course.students.toLocaleString()}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Star className="h-4 w-4 fill-accent text-accent" />
-                      <span>{course.rating}</span>
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filteredCourses.map(course => (
+                <Card key={course.id} className="group hover:shadow-xl transition-all duration-300 overflow-hidden border-border/50">
+                  <div className="relative h-48 overflow-hidden">
+                    <img 
+                      src={course.image_url} 
+                      alt={course.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                    <div className="absolute top-4 right-4">
+                      <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm">
+                        {course.level}
+                      </Badge>
                     </div>
                   </div>
-                </CardContent>
+                  
+                  <CardHeader>
+                    <CardTitle className="text-xl group-hover:text-accent transition-colors">
+                      {course.title}
+                    </CardTitle>
+                    <CardDescription>{course.description}</CardDescription>
+                  </CardHeader>
 
-                <CardFooter className="flex items-center justify-between border-t border-border/50 pt-6">
-                  <span className="text-2xl font-bold text-accent">{course.price}</span>
-                  <Link to={`/course/${course.id}`}>
-                    <Button variant="hero" size="sm">
-                      View Course
-                    </Button>
-                  </Link>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        <span>{course.duration}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4" />
+                        <span>{course.lessons_count} lessons</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        <span>{course.students_count.toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Star className="h-4 w-4 fill-accent text-accent" />
+                        <span>{Number(course.rating).toFixed(1)}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+
+                  <CardFooter className="flex items-center justify-between border-t border-border/50 pt-6">
+                    <span className="text-2xl font-bold text-accent">{course.price}</span>
+                    <Link to={`/course/${course.id}`}>
+                      <Button variant="hero" size="sm">
+                        View Course
+                      </Button>
+                    </Link>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>
