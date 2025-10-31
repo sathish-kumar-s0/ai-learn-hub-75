@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthProvider";
 import Navbar from "@/components/Navbar";
+import CourseLearning from "@/components/CourseLearning";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -220,62 +221,66 @@ const CourseDetail = () => {
       {/* Course Content */}
       <section className="py-16">
         <div className="container mx-auto px-4">
-          <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-12">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="instructor">Instructor</TabsTrigger>
-            </TabsList>
+          {isEnrolled && user ? (
+            <CourseLearning courseId={course.id} userId={user.id} />
+          ) : (
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-12">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="instructor">Instructor</TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="overview" className="space-y-8">
-              <Card>
-                <CardContent className="pt-6">
-                  <h2 className="text-2xl font-bold mb-6 text-foreground">What You'll Learn</h2>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {whatYouLearn.map((item, index) => (
-                      <div key={index} className="flex items-start gap-3">
-                        <CheckCircle2 className="h-6 w-6 text-accent flex-shrink-0 mt-0.5" />
-                        <span className="text-muted-foreground">{item}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+              <TabsContent value="overview" className="space-y-8">
+                <Card>
+                  <CardContent className="pt-6">
+                    <h2 className="text-2xl font-bold mb-6 text-foreground">What You'll Learn</h2>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {whatYouLearn.map((item, index) => (
+                        <div key={index} className="flex items-start gap-3">
+                          <CheckCircle2 className="h-6 w-6 text-accent flex-shrink-0 mt-0.5" />
+                          <span className="text-muted-foreground">{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-            <TabsContent value="instructor">
-              <Card>
-                <CardContent className="pt-6">
-                  <h2 className="text-2xl font-bold mb-6 text-foreground">Your Instructor</h2>
-                  <div className="flex items-start gap-6">
-                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-3xl font-bold text-primary-foreground">
-                      {course.instructor_name.split(' ').map(n => n[0]).join('')}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold mb-2 text-foreground">{course.instructor_name}</h3>
-                      <p className="text-muted-foreground mb-4">
-                        Expert instructor with years of experience in AI and Machine Learning. 
-                        Passionate about making complex topics accessible to everyone.
-                      </p>
-                      <div className="flex gap-4 text-sm">
-                        <div>
-                          <span className="font-bold text-foreground">15</span>
-                          <span className="text-muted-foreground ml-1">Courses</span>
-                        </div>
-                        <div>
-                          <span className="font-bold text-foreground">25,000+</span>
-                          <span className="text-muted-foreground ml-1">Students</span>
-                        </div>
-                        <div>
-                          <span className="font-bold text-foreground">4.9</span>
-                          <span className="text-muted-foreground ml-1">Rating</span>
+              <TabsContent value="instructor">
+                <Card>
+                  <CardContent className="pt-6">
+                    <h2 className="text-2xl font-bold mb-6 text-foreground">Your Instructor</h2>
+                    <div className="flex items-start gap-6">
+                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-3xl font-bold text-primary-foreground">
+                        {course.instructor_name.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-xl font-bold mb-2 text-foreground">{course.instructor_name}</h3>
+                        <p className="text-muted-foreground mb-4">
+                          Expert instructor with years of experience in AI and Machine Learning. 
+                          Passionate about making complex topics accessible to everyone.
+                        </p>
+                        <div className="flex gap-4 text-sm">
+                          <div>
+                            <span className="font-bold text-foreground">15</span>
+                            <span className="text-muted-foreground ml-1">Courses</span>
+                          </div>
+                          <div>
+                            <span className="font-bold text-foreground">25,000+</span>
+                            <span className="text-muted-foreground ml-1">Students</span>
+                          </div>
+                          <div>
+                            <span className="font-bold text-foreground">4.9</span>
+                            <span className="text-muted-foreground ml-1">Rating</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          )}
         </div>
       </section>
     </div>

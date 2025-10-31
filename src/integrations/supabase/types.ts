@@ -103,9 +103,11 @@ export type Database = {
           course_id: string
           created_at: string
           duration_minutes: number | null
+          file_urls: string[] | null
           id: string
           order_index: number
           title: string
+          video_url: string | null
           week_number: number
         }
         Insert: {
@@ -113,9 +115,11 @@ export type Database = {
           course_id: string
           created_at?: string
           duration_minutes?: number | null
+          file_urls?: string[] | null
           id?: string
           order_index: number
           title: string
+          video_url?: string | null
           week_number: number
         }
         Update: {
@@ -123,9 +127,11 @@ export type Database = {
           course_id?: string
           created_at?: string
           duration_minutes?: number | null
+          file_urls?: string[] | null
           id?: string
           order_index?: number
           title?: string
+          video_url?: string | null
           week_number?: number
         }
         Relationships: [
