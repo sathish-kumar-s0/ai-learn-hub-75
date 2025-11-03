@@ -1,53 +1,81 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/components/AuthProvider";
-import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Users, BookOpen, TrendingUp, DollarSign, Loader2 } from "lucide-react";
-import Navbar from "@/components/Navbar";
-import CoursesManagement from "@/components/admin/CoursesManagement";
-import UsersManagement from "@/components/admin/UsersManagement";
+import { AdminLayout } from "@/components/AdminLayout";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { StatsCard } from "@/components/StatsCard";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Users,
+  BookOpen,
+  GraduationCap,
+  TrendingUp,
+  Loader2,
+} from "lucide-react";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
-const AdminDashboard = () => {
-  const { user, loading: authLoading } = useAuth();
-  const { isAdmin, loading: roleLoading } = useUserRole();
-  const navigate = useNavigate();
-  const [stats, setStats] = useState({
+interface Stats {
+  totalUsers: number;
+  totalCourses: number;
+  totalEnrollments: number;
+  activeStudents: number;
+}
+
+const AdminDashboardContent = () => {
+  const [stats, setStats] = useState<Stats>({
     totalUsers: 0,
     totalCourses: 0,
     totalEnrollments: 0,
-    revenue: 0,
+    activeStudents: 0,
   });
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
-    } else if (!roleLoading && !isAdmin) {
-      navigate("/");
-    }
-  }, [user, isAdmin, authLoading, roleLoading, navigate]);
+  const [enrollmentData, setEnrollmentData] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchStats = async () => {
-      if (!isAdmin) return;
-
       try {
-        const [coursesRes, enrollmentsRes, usersRes] = await Promise.all([
-          supabase.from("courses").select("*", { count: "exact" }),
+        const [usersRes, coursesRes, enrollmentsRes] = await Promise.all([
+          supabase.from("profiles").select("*", { count: "exact", head: true }),
+          supabase.from("courses").select("*", { count: "exact", head: true }),
           supabase.from("enrollments").select("*", { count: "exact" }),
-          supabase.from("profiles").select("*", { count: "exact" }),
         ]);
+
+        const activeStudents = new Set(
+          enrollmentsRes.data?.map((e) => e.user_id) || []
+        ).size;
 
         setStats({
           totalUsers: usersRes.count || 0,
           totalCourses: coursesRes.count || 0,
           totalEnrollments: enrollmentsRes.count || 0,
-          revenue: 0, // Placeholder - would calculate from payments
+          activeStudents,
         });
+
+        const enrollmentsByMonth = enrollmentsRes.data?.reduce((acc, enrollment) => {
+          const month = new Date(enrollment.enrolled_at).toLocaleDateString("en-US", {
+            month: "short",
+          });
+          acc[month] = (acc[month] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        const chartData = Object.entries(enrollmentsByMonth || {}).map(
+          ([month, count]) => ({
+            month,
+            enrollments: count,
+          })
+        );
+
+        setEnrollmentData(chartData);
       } catch (error) {
         console.error("Error fetching stats:", error);
       } finally {
@@ -56,108 +84,117 @@ const AdminDashboard = () => {
     };
 
     fetchStats();
-  }, [isAdmin]);
+  }, []);
 
-  if (authLoading || roleLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <AdminLayout>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+      </AdminLayout>
     );
   }
 
-  if (!isAdmin) {
-    return null;
-  }
-
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Admin Dashboard
-          </h1>
-          <p className="text-muted-foreground">Manage your learning platform</p>
+    <AdminLayout>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Overview of your learning platform
+          </p>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Users
-              </CardTitle>
-              <Users className="h-4 w-4 text-accent" />
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <StatsCard
+            title="Total Users"
+            value={stats.totalUsers}
+            description="Registered users"
+            icon={Users}
+          />
+          <StatsCard
+            title="Total Courses"
+            value={stats.totalCourses}
+            description="Published courses"
+            icon={BookOpen}
+          />
+          <StatsCard
+            title="Total Enrollments"
+            value={stats.totalEnrollments}
+            description="Course enrollments"
+            icon={GraduationCap}
+          />
+          <StatsCard
+            title="Active Students"
+            value={stats.activeStudents}
+            description="Students with enrollments"
+            icon={TrendingUp}
+          />
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Enrollment Trends</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">{stats.totalUsers}</div>
-              <p className="text-xs text-muted-foreground mt-1">Registered students</p>
+              {enrollmentData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={enrollmentData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line
+                      type="monotone"
+                      dataKey="enrollments"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  No enrollment data available
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          <Card className="border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Courses
-              </CardTitle>
-              <BookOpen className="h-4 w-4 text-accent" />
+          <Card>
+            <CardHeader>
+              <CardTitle>Enrollments by Month</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">{stats.totalCourses}</div>
-              <p className="text-xs text-muted-foreground mt-1">Published courses</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Enrollments
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-accent" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground">{stats.totalEnrollments}</div>
-              <p className="text-xs text-muted-foreground mt-1">Active enrollments</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Revenue
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-accent" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground">${stats.revenue}</div>
-              <p className="text-xs text-muted-foreground mt-1">Total earnings</p>
+              {enrollmentData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={enrollmentData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="enrollments" fill="hsl(var(--primary))" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  No enrollment data available
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
-
-        {/* Management Tabs */}
-        <Card className="border-border/50">
-          <CardContent className="pt-6">
-            <Tabs defaultValue="courses" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 max-w-md">
-                <TabsTrigger value="courses">Courses</TabsTrigger>
-                <TabsTrigger value="users">Users</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="courses" className="mt-6">
-                <CoursesManagement />
-              </TabsContent>
-
-              <TabsContent value="users" className="mt-6">
-                <UsersManagement />
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
       </div>
-    </div>
+    </AdminLayout>
+  );
+};
+
+const AdminDashboard = () => {
+  return (
+    <ProtectedRoute requireAdmin redirectTo="/admin/login">
+      <AdminDashboardContent />
+    </ProtectedRoute>
   );
 };
 

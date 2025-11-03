@@ -1,15 +1,24 @@
-import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthProvider";
 import Navbar from "@/components/Navbar";
-import CourseLearning from "@/components/CourseLearning";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Clock, Users, Star, BookOpen, CheckCircle2, PlayCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Clock,
+  Users,
+  Star,
+  BookOpen,
+  Loader2,
+  CheckCircle2,
+  PlayCircle,
+  Award,
+} from "lucide-react";
 
 interface Course {
   id: string;
@@ -17,54 +26,71 @@ interface Course {
   description: string;
   level: string;
   duration: string;
-  students_count: number;
-  rating: number;
   price: string;
   lessons_count: number;
   image_url: string;
   instructor_name: string;
+  rating: number;
+  students_count: number;
+}
+
+interface Lesson {
+  id: string;
+  title: string;
+  content: string;
+  week_number: number;
+  order_index: number;
+  duration_minutes: number;
 }
 
 const CourseDetail = () => {
-  const { id } = useParams();
-  const { user } = useAuth();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [course, setCourse] = useState<Course | null>(null);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [isEnrolled, setIsEnrolled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
-  const [isEnrolled, setIsEnrolled] = useState(false);
 
   useEffect(() => {
-    const fetchCourse = async () => {
-      if (!id) return;
-
+    const fetchCourseData = async () => {
       try {
-        const { data, error } = await supabase
+        const { data: courseData, error: courseError } = await supabase
           .from("courses")
           .select("*")
           .eq("id", id)
           .single();
 
-        if (error) throw error;
-        setCourse(data);
+        if (courseError) throw courseError;
+        setCourse(courseData);
 
-        // Check if user is enrolled
+        const { data: lessonsData, error: lessonsError } = await supabase
+          .from("lessons")
+          .select("*")
+          .eq("course_id", id)
+          .order("week_number", { ascending: true })
+          .order("order_index", { ascending: true });
+
+        if (lessonsError) throw lessonsError;
+        setLessons(lessonsData || []);
+
         if (user) {
-          const { data: enrollment } = await supabase
+          const { data: enrollmentData } = await supabase
             .from("enrollments")
             .select("*")
             .eq("user_id", user.id)
             .eq("course_id", id)
-            .maybeSingle();
+            .single();
 
-          setIsEnrolled(!!enrollment);
+          setIsEnrolled(!!enrollmentData);
         }
       } catch (error) {
         console.error("Error fetching course:", error);
         toast({
           title: "Error",
-          description: "Failed to load course",
+          description: "Failed to load course details",
           variant: "destructive",
         });
       } finally {
@@ -72,7 +98,7 @@ const CourseDetail = () => {
       }
     };
 
-    fetchCourse();
+    fetchCourseData();
   }, [id, user, toast]);
 
   const handleEnroll = async () => {
@@ -81,20 +107,20 @@ const CourseDetail = () => {
       return;
     }
 
-    if (!course) return;
-
     setEnrolling(true);
     try {
-      const { error } = await supabase
-        .from("enrollments")
-        .insert([{ user_id: user.id, course_id: course.id }]);
+      const { error } = await supabase.from("enrollments").insert({
+        user_id: user.id,
+        course_id: id,
+        progress: 0,
+      });
 
       if (error) throw error;
 
       setIsEnrolled(true);
       toast({
         title: "Success!",
-        description: "You're now enrolled in this course",
+        description: "You've successfully enrolled in this course",
       });
     } catch (error) {
       console.error("Error enrolling:", error);
@@ -108,11 +134,20 @@ const CourseDetail = () => {
     }
   };
 
+  const groupedLessons = lessons.reduce((acc, lesson) => {
+    const week = `Week ${lesson.week_number}`;
+    if (!acc[week]) {
+      acc[week] = [];
+    }
+    acc[week].push(lesson);
+    return acc;
+  }, {} as Record<string, Lesson[]>);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="flex items-center justify-center h-96">
+        <div className="flex items-center justify-center py-20">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
         </div>
       </div>
@@ -123,164 +158,193 @@ const CourseDetail = () => {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="container mx-auto px-4 py-16 text-center">
-          <h1 className="text-4xl font-bold mb-4">Course not found</h1>
-          <Button onClick={() => navigate("/courses")}>Back to Courses</Button>
+        <div className="container mx-auto px-4 py-20 text-center">
+          <h1 className="text-2xl font-bold mb-4">Course not found</h1>
+          <Link to="/courses">
+            <Button>Browse Courses</Button>
+          </Link>
         </div>
       </div>
     );
   }
-
-  const whatYouLearn = [
-    `${course.title} fundamentals and advanced concepts`,
-    "Hands-on practical exercises and projects",
-    "Industry best practices and techniques",
-    "Real-world applications and case studies",
-    "Building portfolio-ready projects"
-  ];
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
       {/* Hero Section */}
-      <section className="relative py-16 overflow-hidden bg-gradient-to-br from-primary/10 via-accent/5 to-background">
+      <section className="relative py-12 bg-gradient-to-br from-primary/10 via-accent/5 to-background">
         <div className="container mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <div className="flex items-center gap-3 mb-4">
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="flex items-center gap-3">
                 <Badge variant="secondary">{course.level}</Badge>
                 <div className="flex items-center gap-1 text-sm">
-                  <Star className="h-4 w-4 fill-accent text-accent" />
-                  <span className="font-semibold">{Number(course.rating).toFixed(1)}</span>
-                  <span className="text-muted-foreground">({course.students_count} students)</span>
+                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                  <span className="font-medium">{course.rating}</span>
+                  <span className="text-muted-foreground">
+                    ({course.students_count.toLocaleString()} students)
+                  </span>
                 </div>
               </div>
 
-              <h1 className="text-5xl font-bold mb-6 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                {course.title}
-              </h1>
-              
-              <p className="text-xl text-muted-foreground mb-8">
-                {course.description}
-              </p>
+              <h1 className="text-4xl md:text-5xl font-bold">{course.title}</h1>
+              <p className="text-xl text-muted-foreground">{course.description}</p>
 
-              <div className="flex items-center gap-6 mb-8 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <span>Created by</span>
+                <span className="font-medium text-foreground">
+                  {course.instructor_name}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-6 text-sm">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
+                  <Clock className="h-5 w-5 text-primary" />
                   <span>{course.duration}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5" />
+                  <BookOpen className="h-5 w-5 text-primary" />
                   <span>{course.lessons_count} lessons</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  <span>{course.students_count.toLocaleString()} students</span>
+                  <Users className="h-5 w-5 text-primary" />
+                  <span>{course.students_count.toLocaleString()} enrolled</span>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                {isEnrolled ? (
-                  <Button variant="secondary" size="xl" disabled>
-                    Already Enrolled
-                  </Button>
-                ) : (
-                  <Button variant="hero" size="xl" className="gap-2" onClick={handleEnroll} disabled={enrolling}>
-                    {enrolling ? (
-                      <>
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        Enrolling...
-                      </>
-                    ) : (
-                      <>
-                        <PlayCircle className="h-5 w-5" />
-                        Enroll Now
-                      </>
-                    )}
-                  </Button>
-                )}
-                <span className="text-3xl font-bold text-accent">{course.price}</span>
+                <div className="flex items-center gap-2">
+                  <Award className="h-5 w-5 text-primary" />
+                  <span>Certificate included</span>
+                </div>
               </div>
             </div>
 
-            <div className="relative">
-              <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-border/50">
-                <img 
-                  src={course.image_url} 
-                  alt={course.title}
-                  className="w-full h-auto"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
-              </div>
+            <div className="lg:col-span-1">
+              <Card className="sticky top-4">
+                <div className="aspect-video overflow-hidden rounded-t-lg">
+                  <img
+                    src={course.image_url}
+                    alt={course.title}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <CardContent className="p-6 space-y-4">
+                  <div className="text-3xl font-bold text-primary">
+                    {course.price}
+                  </div>
+                  {isEnrolled ? (
+                    <Link to={`/my-courses`}>
+                      <Button className="w-full" size="lg">
+                        <PlayCircle className="mr-2 h-5 w-5" />
+                        Continue Learning
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      className="w-full"
+                      size="lg"
+                      onClick={handleEnroll}
+                      disabled={enrolling}
+                    >
+                      {enrolling ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Enrolling...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="mr-2 h-5 w-5" />
+                          Enroll Now
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
       </section>
 
       {/* Course Content */}
-      <section className="py-16">
+      <section className="py-12">
         <div className="container mx-auto px-4">
-          {isEnrolled && user ? (
-            <CourseLearning courseId={course.id} userId={user.id} />
-          ) : (
-            <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-12">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="instructor">Instructor</TabsTrigger>
-              </TabsList>
+          <Tabs defaultValue="curriculum" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
+              <TabsTrigger value="about">About</TabsTrigger>
+            </TabsList>
 
-              <TabsContent value="overview" className="space-y-8">
-                <Card>
-                  <CardContent className="pt-6">
-                    <h2 className="text-2xl font-bold mb-6 text-foreground">What You'll Learn</h2>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {whatYouLearn.map((item, index) => (
-                        <div key={index} className="flex items-start gap-3">
-                          <CheckCircle2 className="h-6 w-6 text-accent flex-shrink-0 mt-0.5" />
-                          <span className="text-muted-foreground">{item}</span>
-                        </div>
-                      ))}
+            <TabsContent value="curriculum" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Course Curriculum</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {Object.entries(groupedLessons).map(([week, weekLessons]) => (
+                    <div key={week} className="space-y-3">
+                      <h3 className="text-lg font-semibold">{week}</h3>
+                      <div className="space-y-2">
+                        {weekLessons.map((lesson, index) => (
+                          <div
+                            key={lesson.id}
+                            className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/5 transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+                                {index + 1}
+                              </div>
+                              <div>
+                                <p className="font-medium">{lesson.title}</p>
+                                {lesson.duration_minutes && (
+                                  <p className="text-sm text-muted-foreground">
+                                    {lesson.duration_minutes} minutes
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {isEnrolled ? (
+                              <PlayCircle className="h-5 w-5 text-primary" />
+                            ) : (
+                              <span className="text-sm text-muted-foreground">
+                                Preview
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      {week !== Object.keys(groupedLessons).slice(-1)[0] && (
+                        <Separator className="my-4" />
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                  ))}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-              <TabsContent value="instructor">
-                <Card>
-                  <CardContent className="pt-6">
-                    <h2 className="text-2xl font-bold mb-6 text-foreground">Your Instructor</h2>
-                    <div className="flex items-start gap-6">
-                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-3xl font-bold text-primary-foreground">
-                        {course.instructor_name.split(' ').map(n => n[0]).join('')}
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-xl font-bold mb-2 text-foreground">{course.instructor_name}</h3>
-                        <p className="text-muted-foreground mb-4">
-                          Expert instructor with years of experience in AI and Machine Learning. 
-                          Passionate about making complex topics accessible to everyone.
-                        </p>
-                        <div className="flex gap-4 text-sm">
-                          <div>
-                            <span className="font-bold text-foreground">15</span>
-                            <span className="text-muted-foreground ml-1">Courses</span>
-                          </div>
-                          <div>
-                            <span className="font-bold text-foreground">25,000+</span>
-                            <span className="text-muted-foreground ml-1">Students</span>
-                          </div>
-                          <div>
-                            <span className="font-bold text-foreground">4.9</span>
-                            <span className="text-muted-foreground ml-1">Rating</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          )}
+            <TabsContent value="about">
+              <Card>
+                <CardHeader>
+                  <CardTitle>About This Course</CardTitle>
+                </CardHeader>
+                <CardContent className="prose prose-sm max-w-none dark:prose-invert">
+                  <p>{course.description}</p>
+                  <h3>What you'll learn</h3>
+                  <ul>
+                    <li>Master the fundamentals and advanced concepts</li>
+                    <li>Build real-world projects from scratch</li>
+                    <li>Understand best practices and industry standards</li>
+                    <li>Gain hands-on experience with modern tools</li>
+                  </ul>
+                  <h3>Requirements</h3>
+                  <ul>
+                    <li>Basic computer skills</li>
+                    <li>Enthusiasm to learn</li>
+                    <li>No prior experience required</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </section>
     </div>
