@@ -55,10 +55,19 @@ const AdminUsersContent = () => {
 
       if (profilesError) throw profilesError;
 
-      const { data: { users: authUsers }, error: authError } = await supabase.auth.admin.listUsers();
+      // Fetch auth users - admin API requires service role key
+      let authUsersData: Array<{ id: string; email?: string }> = [];
+      try {
+        const { data, error: authError } = await supabase.auth.admin.listUsers();
+        if (!authError && data?.users) {
+          authUsersData = data.users;
+        }
+      } catch (authError) {
+        console.warn("Could not fetch auth users (service role required):", authError);
+      }
 
       const usersWithEmail = profilesData?.map((profile) => {
-        const authUser = authUsers?.find((u) => u.id === profile.id);
+        const authUser = authUsersData.find((u) => u.id === profile.id);
         return {
           ...profile,
           email: authUser?.email || "N/A",

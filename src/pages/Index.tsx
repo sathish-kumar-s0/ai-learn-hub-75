@@ -7,6 +7,7 @@ import { Brain, Code, Rocket, Users, Award, Zap, ArrowRight } from "lucide-react
 import heroImage from "@/assets/hero-banner.jpg";
 
 const Index = () => {
+  // Main landing page component
   const features = [
     {
       icon: Brain,
