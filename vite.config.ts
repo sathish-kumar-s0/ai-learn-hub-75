@@ -20,4 +20,8 @@ export default defineConfig(({ mode }) => ({
     },
   },
   envPrefix: 'VITE_',
+  define: {
+    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || 'https://fbefywbakluyiwkrhtjz.supabase.co'),
+    'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify(process.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZiZWZ5d2Jha2x1eWl3a3JodGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MDQzODEsImV4cCI6MjA3NzM4MDM4MX0.HyIjEOmdsIFsm0_W88lcI95jEsa52Bj1Ky745PTGeek'),
+  },
 }));
