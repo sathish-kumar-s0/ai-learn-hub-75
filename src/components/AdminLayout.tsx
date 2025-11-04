@@ -125,10 +125,10 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
         <Sidebar />
       </aside>
 
-      {/* Mobile Sidebar */}
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        {/* Main Content */}
-        <div className="flex flex-1 flex-col overflow-hidden">
+      {/* Main Content */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Mobile Sidebar */}
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           {/* Mobile Header */}
           <header className="flex items-center gap-4 border-b p-4 lg:hidden">
             <SheetTrigger asChild>
@@ -139,16 +139,16 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
             <h1 className="text-lg font-semibold">Admin Panel</h1>
           </header>
 
-          {/* Page Content */}
-          <main className="flex-1 overflow-auto">
-            <div className="container mx-auto p-6">{children}</div>
-          </main>
-        </div>
+          <SheetContent side="left" className="w-64 p-0">
+            <Sidebar mobile />
+          </SheetContent>
+        </Sheet>
 
-        <SheetContent side="left" className="w-64 p-0">
-          <Sidebar mobile />
-        </SheetContent>
-      </Sheet>
+        {/* Page Content */}
+        <main className="flex-1 overflow-auto">
+          <div className="container mx-auto p-6">{children}</div>
+        </main>
+      </div>
     </div>
   );
 };
